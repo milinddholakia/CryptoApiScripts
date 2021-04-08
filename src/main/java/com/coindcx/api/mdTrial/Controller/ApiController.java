@@ -7,7 +7,9 @@ import com.coindcx.api.mdTrial.pojo.LossMarkets;
 import com.coindcx.api.mdTrial.pojo.ProfitMarkets;
 import com.coindcx.api.mdTrial.pojo.TickerData;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 @RestController
@@ -40,29 +42,39 @@ public class ApiController {
 
             RestTemplate restTemplate = new RestTemplate();
             TickerData[] result = restTemplate.getForObject(uri, TickerData[].class);
+
             assert result != null;
             System.out.println("Job Started");
-            for (TickerData tickerData : result) {
+
+            for (int i=0;  result.length-1>i;i++) {
+                TickerData tickerData = result[i];
                 ProfitMarkets profitMarkets = new ProfitMarkets();
                 LossMarkets lossMarkets = new LossMarkets();
                 TickerData comparePrevious = cryptoApiRepository.findByMarket(tickerData.getMarket());
+                float oldPrice =Float.parseFloat(comparePrevious.getLast_price());
+                float newPrice =Float.parseFloat(tickerData.getLast_price());
+                float percentage ;
 
-                if (Float.parseFloat(comparePrevious.getLast_price()) > Float.parseFloat(tickerData.getLast_price())) {
+                percentage = (((newPrice-oldPrice)*100)/oldPrice);
+                if (percentage<0) {
                     lossMarkets.setMarket(tickerData.getMarket());
-                    float loss ;
-                    loss = ((Float.parseFloat(comparePrevious.getLast_price())) % (Float.parseFloat(tickerData.getLast_price())));
-                    lossMarkets.setPercentageLoss(loss);
+
+                    lossMarkets.setPercentageLoss(percentage);
+
                     lossApiRepository.save(lossMarkets);
+                    System.out.println("loss saved");
 
                 } else {
                     profitMarkets.setMarket(tickerData.getMarket());
-                    float profit ;
-                    profit =((Float.parseFloat(comparePrevious.getLast_price())) % (Float.parseFloat(tickerData.getLast_price())));
-                    profitMarkets.setPercentageGrowth(profit);
+                    profitMarkets.setPercentageGrowth(percentage);
                     profitApiRepository.save(profitMarkets);
+                    System.out.println("Profit saved");
+
                 }
                 cryptoApiRepository.save(tickerData);
+
             }
+
             System.out.println("Job Ended ,Added " + result.length + "entries");
         }catch (Exception e)
         {
